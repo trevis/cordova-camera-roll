@@ -78,5 +78,54 @@
 
 }
 
+/**
+ * Get the latest 25 images from the camera roll
+ *
+ * TODO: This should support block-type reading with a set of images
+ */
+- (void)getRecentPhotos:(CDVInvokedUrlCommand*)command
+{
+    NSInteger maxPhotos = 25;
+    
+    // Grab the asset library
+    ALAssetsLibrary *library = [IonicCameraRoll defaultAssetsLibrary];
+    
+    // Run a background job
+    [self.commandDelegate runInBackground:^{
+        
+        // Enumerate all of the group saved photos, which is our Camera Roll on iOS
+        [library enumerateGroupsWithTypes:ALAssetsGroupSavedPhotos usingBlock:^(ALAssetsGroup *group, BOOL *stop) {
+            
+            if(group != nil) {
+                // Enumarate this group of images
+                NSMutableArray *results = [NSMutableArray array];
+                NSInteger startIndex = MAX(0, group.numberOfAssets - maxPhotos);
+                NSRange range = NSMakeRange(startIndex, MIN(group.numberOfAssets, maxPhotos));
+                
+                [group enumerateAssetsAtIndexes:[NSIndexSet indexSetWithIndexesInRange:range] options:0
+                 usingBlock:^(ALAsset *result, NSUInteger index, BOOL *stop) {
+                     if ([results count] > maxPhotos) {
+                         return;
+                     }
+                     NSDictionary *urls = [result valueForProperty:ALAssetPropertyURLs];
+                     
+                     [urls enumerateKeysAndObjectsUsingBlock:^(id key, NSURL *obj, BOOL *stop) {
+                         [results insertObject:obj.absoluteString atIndex:0];
+                     }];
+                 }];
+                
+                NSArray *latestResults = [results subarrayWithRange:NSMakeRange(0, MIN([results count], maxPhotos))];
+                
+                CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:latestResults];
+                [pluginResult setKeepCallbackAsBool:YES];
+                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+            }
+        } failureBlock:^(NSError *error) {
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:error.localizedDescription];
+            [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+        }];
+    }];
+}
+
 @end
 

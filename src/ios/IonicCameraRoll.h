@@ -7,5 +7,6 @@
 {}
 
 - (void)getPhotos:(CDVInvokedUrlCommand*)command;
+- (void)getRecentPhotos:(CDVInvokedUrlCommand*)command;
 
 @end
